@@ -1,6 +1,7 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
+import WilayahSelect, { type WilayahValue } from '@/components/ui/WilayahSelect';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import {
@@ -12,6 +13,7 @@ import {
   CheckCircle2,
   RefreshCw,
   LogOut,
+  MapPin,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -23,6 +25,10 @@ export default function SettingsPage() {
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [latency, setLatency] = useState<number>(0);
   const [testing, setTesting] = useState(false);
+  const [storeAddress, setStoreAddress] = useState<WilayahValue>({
+    province: '', regency: '', district: '', village: '', postalCode: '',
+  });
+  const [addressSaved, setAddressSaved] = useState(false);
 
   const checkHealth = async () => {
     setTesting(true);
@@ -213,7 +219,51 @@ export default function SettingsPage() {
             Keluar dari Sesi Administrasi
           </button>
         </div>
+
+        {/* Alamat Toko / Gudang */}
+        <div className="card p-6 space-y-4 md:col-span-2">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[#262626]">
+            <MapPin className="w-5 h-5 text-gold" />
+            <h3 className="text-base font-semibold text-white">Alamat Toko & Gudang</h3>
+            <span className="ml-auto text-[11px] text-gray-500">Digunakan untuk data pengiriman & profil toko</span>
+          </div>
+
+          <WilayahSelect
+            onChange={(val: WilayahValue) => {
+              setStoreAddress(val);
+              setAddressSaved(false);
+            }}
+            initialValue={storeAddress}
+          />
+
+          {storeAddress.village && (
+            <div className="flex items-center justify-between pt-2">
+              <div className="text-xs text-gray-400">
+                <span className="font-medium text-gray-300">Alamat saat ini: </span>
+                {[storeAddress.village, storeAddress.district, storeAddress.regency, storeAddress.province].filter(Boolean).join(', ')}
+                {storeAddress.postalCode && <span className="ml-2 text-gold font-mono">{storeAddress.postalCode}</span>}
+              </div>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  setAddressSaved(true);
+                  setTimeout(() => setAddressSaved(false), 3000);
+                }}
+              >
+                {addressSaved ? (
+                  <><CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-400" />Tersimpan!</>
+                ) : (
+                  'Simpan Alamat'
+                )}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+
+
+
