@@ -29,6 +29,7 @@ export interface Product {
   name: string;
   slug: string;
   description: string;
+  shortDescription?: string;
   price: number;
   comparePrice?: number;
   category: ProductCategory;
@@ -40,6 +41,20 @@ export interface Product {
   rating: number;
   reviewCount: number;
   tags: string[];
+  createdAt: string;
+}
+
+export type ReviewStatus = 'published' | 'hidden';
+
+export interface Review {
+  id: string;
+  productId: string;
+  orderId: string;
+  userId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  status: ReviewStatus;
   createdAt: string;
 }
 

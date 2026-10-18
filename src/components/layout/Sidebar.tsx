@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Package,
   ShoppingBag,
+  MessageSquareText,
   Users,
   Boxes,
   Settings,
@@ -78,6 +79,11 @@ export function Sidebar() {
       icon: ShoppingBag,
       badge: pendingOrdersCount > 0 ? pendingOrdersCount : null,
       badgeVariant: 'warning',
+    },
+    {
+      label: 'Ulasan Pelanggan',
+      href: '/reviews',
+      icon: MessageSquareText,
     },
     {
       label: 'Inventaris & Stok',

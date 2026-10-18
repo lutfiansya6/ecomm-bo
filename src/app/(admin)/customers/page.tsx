@@ -6,27 +6,44 @@ import { api } from '@/lib/api';
 import { useUIStore } from '@/store/ui';
 import { CustomerTable } from '@/components/customers/CustomerTable';
 import { formatPrice } from '@/lib/utils';
-import { Users, Crown, ShoppingBag, ShieldCheck } from 'lucide-react';
+import { Users, Crown, ShoppingBag, RotateCw } from 'lucide-react';
 
 export default function CustomersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const { addToast } = useUIStore();
 
-  const loadUsers = async () => {
+  const loadUsers = async (isManual = false) => {
+    if (isManual) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const res = await api.users.list();
       if (res.success && res.data?.users) {
         setUsers(res.data.users);
+        if (isManual) {
+          addToast({
+            type: 'success',
+            title: 'Data Diperbarui',
+            message: `Berhasil memuat ${res.data.users.length} data akun pengguna.`,
+          });
+        }
+      } else {
+        throw new Error(res.error || 'Gagal memuat data');
       }
-    } catch {
+    } catch (err: unknown) {
       addToast({
         type: 'error',
         title: 'Koneksi Gagal',
-        message: 'Tidak dapat memuat direktori pelanggan.',
+        message: err instanceof Error ? err.message : 'Tidak dapat memuat direktori pelanggan.',
       });
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -41,13 +58,25 @@ export default function CustomersPage() {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-serif text-white font-medium">
-          Direktori Pelanggan & Klien VIP
-        </h2>
-        <p className="text-xs text-gray-400 mt-1">
-          Daftar akun pembeli terdaftar, analitik total belanja, dan segmentasi loyalitas
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-serif text-white font-medium">
+            Direktori Pelanggan & Klien VIP
+          </h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Daftar akun pembeli terdaftar, analitik total belanja, dan segmentasi loyalitas
+          </p>
+        </div>
+
+        <button
+          onClick={() => loadUsers(true)}
+          disabled={loading || refreshing}
+          className="btn btn-secondary btn-sm flex items-center gap-2 self-start sm:self-auto hover:border-gold/50 transition-colors"
+          title="Segarkan daftar pelanggan"
+        >
+          <RotateCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-gold' : ''}`} />
+          <span>{refreshing ? 'Memperbarui...' : 'Segarkan Data'}</span>
+        </button>
       </div>
 
       {/* Metrics */}

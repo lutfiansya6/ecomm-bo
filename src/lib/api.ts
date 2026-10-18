@@ -1,4 +1,4 @@
-import type { Product, Order, User, ApiResponse } from '@/types';
+import type { Product, Order, User, Review, ReviewStatus, ApiResponse } from '@/types';
 
 function getAuthHeader(): Record<string, string> {
   if (typeof window === 'undefined') return {};
@@ -20,6 +20,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     });
 
     const data = await res.json();
+    if (res.status === 401 && endpoint !== '/api/auth/login' && typeof window !== 'undefined') {
+      // Token is invalid/expired (e.g. backend restarted): force a fresh login
+      localStorage.removeItem('luxe_admin_token');
+      localStorage.removeItem('luxe_admin_user');
+      document.cookie = 'luxe_token=; path=/; max-age=0';
+      window.location.href = '/login';
+    }
     if (!res.ok) {
       return {
         success: false,
@@ -90,6 +97,20 @@ export const api = {
       request<Order>(`/api/orders/${id}`, {
         method: 'PUT',
         body: JSON.stringify(update),
+      }),
+  },
+
+  // Reviews
+  reviews: {
+    list: () => request<Review[]>('/api/reviews'),
+    updateStatus: (id: string, status: ReviewStatus) =>
+      request<Review>(`/api/reviews/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+    delete: (id: string) =>
+      request<{ deleted: boolean }>(`/api/reviews/${id}`, {
+        method: 'DELETE',
       }),
   },
 

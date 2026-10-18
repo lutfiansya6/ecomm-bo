@@ -38,6 +38,8 @@ export function ProductFormModal({
   const [comparePrice, setComparePrice] = useState<number | undefined>(undefined);
   const [stock, setStock] = useState<number>(10);
   const [description, setDescription] = useState('');
+  const [shortDescription, setShortDescription] = useState('');
+  const [descError, setDescError] = useState('');
   const [sizesInput, setSizesInput] = useState('S, M, L');
   const [colorsInput, setColorsInput] = useState('Black, Gold');
   const [tagsInput, setTagsInput] = useState('luxury, exclusive');
@@ -54,6 +56,7 @@ export function ProductFormModal({
       setComparePrice(product.comparePrice);
       setStock(product.stock);
       setDescription(product.description || '');
+      setShortDescription(product.shortDescription || '');
       setSizesInput(product.sizes?.join(', ') || '');
       setColorsInput(product.colors?.join(', ') || '');
       setTagsInput(product.tags?.join(', ') || '');
@@ -67,12 +70,14 @@ export function ProductFormModal({
       setComparePrice(undefined);
       setStock(15);
       setDescription('');
+      setShortDescription('');
       setSizesInput('S, M, L');
       setColorsInput('Black, Gold');
       setTagsInput('luxury, new');
       setImageUrl(defaultImages[0]);
       setFeatured(false);
     }
+    setDescError('');
   }, [product, isOpen]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,6 +90,10 @@ export function ProductFormModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!description.trim()) {
+      setDescError('Deskripsi produk wajib diisi.');
+      return;
+    }
     setSubmitting(true);
 
     try {
@@ -108,7 +117,8 @@ export function ProductFormModal({
         price: Number(price),
         comparePrice: comparePrice ? Number(comparePrice) : undefined,
         stock: Number(stock),
-        description,
+        description: description.trim(),
+        shortDescription: shortDescription.trim(),
         sizes,
         colors,
         tags,
@@ -287,16 +297,37 @@ export function ProductFormModal({
           />
         </div>
 
-        {/* Row 6: Description */}
+        {/* Row 6: Short Description */}
         <div>
-          <label className="input-label">Deskripsi Lengkap</label>
-          <textarea
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Deskripsi keunggulan bahan, potongan jahitan, dan karakteristik busana mewah..."
-            className="input textarea text-sm resize-none"
+          <label className="input-label">Ringkasan Singkat (Opsional)</label>
+          <input
+            type="text"
+            value={shortDescription}
+            onChange={(e) => setShortDescription(e.target.value)}
+            placeholder="Ringkasan 1-2 kalimat yang tampil di kartu produk"
+            className="input text-sm"
           />
+        </div>
+
+        {/* Row 6b: Description */}
+        <div>
+          <label className="input-label" htmlFor="product-description">Deskripsi Produk *</label>
+          <textarea
+            id="product-description"
+            rows={5}
+            required
+            value={description}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              if (descError) setDescError('');
+            }}
+            placeholder="Deskripsi keunggulan bahan, potongan jahitan, dan karakteristik busana mewah..."
+            className={`input textarea text-sm resize-y ${descError ? 'border-rose-500' : ''}`}
+          />
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-xs text-rose-400">{descError}</span>
+            <span className="text-xs text-gray-500">{description.length} karakter</span>
+          </div>
         </div>
 
         {/* Row 7: Image Selection & Preview */}
