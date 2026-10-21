@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -22,6 +23,12 @@ export function Modal({
   footer,
   maxWidth = 'lg',
 }: ModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -36,7 +43,7 @@ export function Modal({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const maxWidthClass = {
     sm: 'max-w-sm',
@@ -47,8 +54,8 @@ export function Modal({
     '4xl': 'max-w-4xl',
   }[maxWidth];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-md animate-fadeIn">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex justify-center p-3 sm:p-6 md:p-8 overflow-y-auto bg-black/80 backdrop-blur-md animate-fadeIn">
       {/* Clickable backdrop overlay */}
       <div
         className="fixed inset-0"
@@ -58,7 +65,7 @@ export function Modal({
 
       {/* Modal Dialog Card (3-part flex column) */}
       <div
-        className={`relative w-full ${maxWidthClass} bg-[#111111] border border-[#262626] rounded-2xl shadow-2xl z-10 max-h-[85vh] flex flex-col overflow-hidden`}
+        className={`relative w-full ${maxWidthClass} my-auto bg-[#111111] border border-[#262626] rounded-2xl shadow-2xl z-10 max-h-[85vh] flex flex-col overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 1. Header (fixed at top, shrink-0, does NOT scroll) */}
@@ -88,6 +95,7 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

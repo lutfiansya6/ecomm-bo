@@ -16,13 +16,60 @@ export interface User {
   lastOrderDate?: string | null;
 }
 
-export type ProductCategory =
-  | 'dress'
-  | 'blazer'
-  | 'bag'
-  | 'shoes'
-  | 'coat'
-  | 'accessories';
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  order: number;
+  active: boolean;
+  label_en?: string;
+  label_id?: string;
+  createdAt: string;
+  productCount?: number;
+}
+
+export type ProductCategory = string;
+
+export type NavigationItemType = 'all' | 'new' | 'sale' | 'category' | 'url';
+
+export interface NavigationChildCategory {
+  id?: string;
+  name: string;
+  slug: string;
+  label_en?: string;
+  label_id?: string;
+}
+
+export interface NavigationItem {
+  id: string;
+  label: string;
+  type: NavigationItemType;
+  target: string;
+  accent: boolean;
+  order: number;
+  active: boolean;
+  system: boolean;
+  childCategoryIds?: string[];
+  children?: NavigationChildCategory[];
+  gender?: 'women' | 'men' | 'unisex';
+  label_en?: string;
+  label_id?: string;
+  productIds?: string[];
+  productCount?: number;
+  slug?: string;
+  createdAt: string;
+}
+
+export type ProductGender = 'women' | 'men' | 'unisex';
+
+export interface ColorVariant {
+  name: string;
+  hex: string;
+  images: string[];
+  price?: number;
+  stock?: number;
+  sizeStock?: Record<string, number>;
+}
 
 export interface Product {
   id: string;
@@ -32,10 +79,15 @@ export interface Product {
   shortDescription?: string;
   price: number;
   comparePrice?: number;
+  categoryId?: string;
   category: ProductCategory;
+  gender?: ProductGender;
+  collection?: boolean;
+  menuIds?: string[];
   images: string[];
   sizes: string[];
   colors: string[];
+  colorVariants?: ColorVariant[];
   stock: number;
   featured: boolean;
   rating: number;
@@ -117,6 +169,8 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   message?: string;
   error?: string;
+  productCount?: number;
+  [key: string]: unknown;
 }
 
 export interface DashboardStats {

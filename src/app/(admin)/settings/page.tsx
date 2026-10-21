@@ -1,9 +1,11 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import WilayahSelect, { type WilayahValue } from '@/components/ui/WilayahSelect';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
+import { api } from '@/lib/api';
+import type { Category } from '@/types';
 import {
   Settings,
   Shield,
@@ -28,6 +30,7 @@ export default function SettingsPage() {
   const [storeAddress, setStoreAddress] = useState<WilayahValue>({
     province: '', regency: '', district: '', village: '', postalCode: '',
   });
+  const [categories, setCategories] = useState<Category[]>([]);
   const [addressSaved, setAddressSaved] = useState(false);
 
   const checkHealth = async () => {
@@ -51,6 +54,11 @@ export default function SettingsPage() {
 
   useEffect(() => {
     checkHealth();
+    api.categories.list({ all: true }).then((res) => {
+      if (res.success && res.data) {
+        setCategories(res.data);
+      }
+    });
   }, []);
 
   const handleLogout = () => {
@@ -184,7 +192,7 @@ export default function SettingsPage() {
             <p><strong>Nama Brand:</strong> LUXE Haute Couture</p>
             <p><strong>Lokasi Flagship:</strong> Plaza Senayan Level 2, Jakarta Pusat</p>
             <p><strong>Kontak Layanan:</strong> concierge@luxe.com • +62 21 5790 0000</p>
-            <p><strong>Kategori Utama:</strong> Dress, Blazer, Bag, Shoes, Coat, Accessories</p>
+            <p><strong>Kategori Utama:</strong> {categories.length > 0 ? categories.map((c) => c.name).join(', ') : 'Memuat...'}</p>
             <div className="p-3 rounded-xl bg-[#161616] border border-[#262626] mt-3 text-gray-400 text-[11px] leading-relaxed">
               Data backend saat ini menggunakan in-memory storage yang dimuat dari seed JSON di server backend.
             </div>

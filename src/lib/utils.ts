@@ -88,3 +88,18 @@ export function getPaymentStatusBadge(status: string) {
       return { label: status, variant: 'neutral' as const };
   }
 }
+
+export function getProductFallbackImage(nameOrCategory?: string): string {
+  const s = (nameOrCategory || '').toLowerCase();
+  if (s.includes('blazer')) return '/blazer_black.jpg';
+  if (s.includes('shoes') || s.includes('stiletto') || s.includes('heels')) return '/shoes_black.jpg';
+  if (s.includes('bag') || s.includes('tote')) return '/bag_black.jpg';
+  if (s.includes('scarf')) return '/scarf_black.jpg';
+  if (s.includes('coat')) return '/coat_black.jpg';
+  if (s.includes('trousers') || s.includes('linen')) return '/trousers_black.jpg';
+  if (s.includes('belt')) return '/belt_black.jpg';
+  if (s.includes('charm')) return '/charm_black.jpg';
+  if (s.includes('dress') || s.includes('midi')) return '/dress_black.jpg';
+  return '/gown_black.jpg';
+}
+
