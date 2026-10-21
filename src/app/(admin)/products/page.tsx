@@ -1,31 +1,45 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import type { Product } from '@/types';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import type { Product, ColorVariant, Category } from '@/types';
 import { api } from '@/lib/api';
 import { useUIStore } from '@/store/ui';
 import { ProductTable } from '@/components/products/ProductTable';
 import { ProductFormModal } from '@/components/products/ProductFormModal';
 import { Plus, Package, Sparkles, AlertCircle } from 'lucide-react';
 
-export default function ProductsPage() {
+function ProductsContent() {
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category') || undefined;
+  const editParam = searchParams.get('edit') || undefined;
+  const newParam = searchParams.get('new') === 'true';
+
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [initialCategory, setInitialCategory] = useState<string | undefined>(categoryParam);
   const { addToast } = useUIStore();
 
-  const loadProducts = async () => {
+  const loadData = async () => {
     try {
-      const res = await api.products.list();
-      if (res.success && res.data?.products) {
-        setProducts(res.data.products);
+      const [prodsRes, catsRes] = await Promise.all([
+        api.products.list(),
+        api.categories.list({ all: true }),
+      ]);
+      if (prodsRes.success && prodsRes.data?.products) {
+        setProducts(prodsRes.data.products);
+      }
+      if (catsRes.success && catsRes.data) {
+        setCategories(catsRes.data);
       }
     } catch {
       addToast({
         type: 'error',
         title: 'Koneksi Gagal',
-        message: 'Tidak dapat mengambil katalog produk dari backend.',
+        message: 'Tidak dapat mengambil data produk atau kategori dari backend.',
       });
     } finally {
       setLoading(false);
@@ -33,8 +47,23 @@ export default function ProductsPage() {
   };
 
   useEffect(() => {
-    loadProducts();
+    loadData();
   }, []);
+
+  // Handle URL query parameters for auto-editing or adding
+  useEffect(() => {
+    if (!loading && products.length > 0 && editParam) {
+      const found = products.find((p) => p.id === editParam || p.slug === editParam);
+      if (found) {
+        setEditingProduct(found);
+        setIsModalOpen(true);
+      }
+    } else if (!loading && newParam) {
+      setEditingProduct(null);
+      setInitialCategory(categoryParam);
+      setIsModalOpen(true);
+    }
+  }, [loading, products, editParam, newParam, categoryParam]);
 
   const handleOpenAdd = () => {
     setEditingProduct(null);
@@ -51,36 +80,42 @@ export default function ProductsPage() {
       if (editingProduct) {
         const res = await api.products.update(editingProduct.id, data);
         if (res.success && res.data) {
+          const updated = res.data;
           setProducts((prev) =>
-            prev.map((p) => (p.id === editingProduct.id ? res.data! : p))
+            prev.map((p) => (p.id === editingProduct.id ? updated : p))
           );
+          setEditingProduct(null);
           addToast({
             type: 'success',
             title: 'Produk Diperbarui',
-            message: `Data produk "${res.data.name}" berhasil disimpan.`,
+            message: `Data produk "${updated.name}" berhasil disimpan.`,
           });
         } else {
-          throw new Error(res.error || 'Gagal memperbarui');
+          throw new Error(res.error || 'Gagal memperbarui data produk.');
         }
       } else {
         const res = await api.products.create(data);
         if (res.success && res.data) {
-          setProducts((prev) => [res.data!, ...prev]);
+          const created = res.data;
+          setProducts((prev) => [created, ...prev]);
+          setEditingProduct(null);
           addToast({
             type: 'success',
             title: 'Produk Ditambahkan',
-            message: `Produk baru "${res.data.name}" berhasil dibuat.`,
+            message: `Produk baru "${created.name}" berhasil dibuat.`,
           });
         } else {
-          throw new Error(res.error || 'Gagal menambahkan');
+          throw new Error(res.error || 'Gagal menambahkan produk.');
         }
       }
     } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.';
       addToast({
         type: 'error',
         title: 'Gagal Menyimpan',
-        message: err instanceof Error ? err.message : 'Terjadi kesalahan sistem.',
+        message: errMsg,
       });
+      throw err;
     }
   };
 
@@ -112,23 +147,109 @@ export default function ProductsPage() {
   };
 
   const handleUpdateStock = async (id: string, newStock: number) => {
+    const product = products.find((p) => p.id === id);
+    if (!product) return;
+
+    const sizes =
+      product.sizes && product.sizes.length > 0 ? product.sizes : ['One Size'];
+    const safeStock = Math.max(0, Math.floor(newStock));
+
+    // Update sizeStock across colorVariants tanpa menyertakan field turunan stock
+    let updatedVariants: ColorVariant[];
+    if (product.colorVariants && product.colorVariants.length > 0) {
+      const perVariant = Math.floor(safeStock / product.colorVariants.length);
+      const variantRemainder = safeStock - perVariant * product.colorVariants.length;
+
+      updatedVariants = product.colorVariants.map((cv, vIdx) => {
+        const vTarget = vIdx === 0 ? perVariant + variantRemainder : perVariant;
+        const perSize = Math.floor(vTarget / sizes.length);
+        const sizeRemainder = vTarget - perSize * sizes.length;
+
+        const sizeStock: Record<string, number> = {};
+        sizes.forEach((sz, sIdx) => {
+          sizeStock[sz] = sIdx === 0 ? perSize + sizeRemainder : perSize;
+        });
+
+        const { stock: _s, ...restCv } = cv;
+        return {
+          ...restCv,
+          sizeStock,
+        };
+      });
+    } else {
+      const colors =
+        product.colors && product.colors.length > 0 ? product.colors : ['Default'];
+      const perColor = Math.floor(safeStock / colors.length);
+      const colorRemainder = safeStock - perColor * colors.length;
+
+      updatedVariants = colors.map((cName, cIdx) => {
+        const cTarget = cIdx === 0 ? perColor + colorRemainder : perColor;
+        const perSize = Math.floor(cTarget / sizes.length);
+        const sizeRemainder = cTarget - perSize * sizes.length;
+
+        const sizeStock: Record<string, number> = {};
+        sizes.forEach((sz, sIdx) => {
+          sizeStock[sz] = sIdx === 0 ? perSize + sizeRemainder : perSize;
+        });
+
+        return {
+          name: cName,
+          hex: '#000000',
+          images: product.images || [],
+          sizeStock,
+        };
+      });
+    }
+
     try {
-      const res = await api.products.update(id, { stock: newStock });
+      const res = await api.products.update(id, {
+        colorVariants: updatedVariants,
+      });
       if (res.success && res.data) {
         setProducts((prev) =>
-          prev.map((p) => (p.id === id ? { ...p, stock: newStock } : p))
+          prev.map((p) => (p.id === id ? res.data! : p))
         );
         addToast({
           type: 'success',
           title: 'Stok Diperbarui',
-          message: `Stok untuk "${res.data.name}" diubah menjadi ${newStock} unit.`,
+          message: `Stok untuk "${res.data.name}" diubah menjadi ${res.data.stock} unit.`,
         });
+      } else {
+        throw new Error(res.error || 'Gagal memperbarui jumlah stok di server.');
       }
-    } catch {
+    } catch (err: unknown) {
       addToast({
         type: 'error',
         title: 'Gagal Update Stok',
-        message: 'Tidak dapat memperbarui jumlah stok di server.',
+        message: err instanceof Error ? err.message : 'Tidak dapat memperbarui jumlah stok di server.',
+      });
+    }
+  };
+
+  const handleToggleFeatured = async (product: Product) => {
+    try {
+      const res = await api.products.update(product.id, {
+        featured: !product.featured,
+      });
+      if (res.success && res.data) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === product.id ? res.data! : p))
+        );
+        addToast({
+          type: 'info',
+          title: 'Status Featured Diperbarui',
+          message: `Produk "${product.name}" sekarang ${
+            res.data.featured ? 'ditampilkan di beranda' : 'tidak lagi featured'
+          }.`,
+        });
+      } else {
+        throw new Error(res.error || 'Gagal mengubah status featured.');
+      }
+    } catch (err: unknown) {
+      addToast({
+        type: 'error',
+        title: 'Gagal Update Featured',
+        message: err instanceof Error ? err.message : 'Terjadi kesalahan sistem.',
       });
     }
   };
@@ -206,9 +327,12 @@ export default function ProductsPage() {
       ) : (
         <ProductTable
           products={products}
+          categories={categories}
+          initialCategoryFilter={categoryParam}
           onEdit={handleOpenEdit}
           onDelete={handleDeleteProduct}
           onUpdateStock={handleUpdateStock}
+          onToggleFeatured={handleToggleFeatured}
         />
       )}
 
@@ -218,7 +342,17 @@ export default function ProductsPage() {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveProduct}
         product={editingProduct}
+        categories={categories}
+        initialCategory={initialCategory}
       />
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div className="card p-8 skeleton h-96" />}>
+      <ProductsContent />
+    </Suspense>
   );
 }

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import type { Product, ProductCategory } from '@/types';
+import type { Product, ProductCategory, Category } from '@/types';
+import { api } from '@/lib/api';
 import { formatPrice } from '@/lib/utils';
 import { Badge } from '@/components/ui/Badge';
 import {
@@ -19,20 +20,49 @@ import {
 
 interface ProductTableProps {
   products: Product[];
+  categories?: Category[];
+  initialCategoryFilter?: string;
   onEdit: (product: Product) => void;
   onDelete: (id: string) => Promise<void>;
   onUpdateStock: (id: string, newStock: number) => Promise<void>;
+  onToggleFeatured?: (product: Product) => Promise<void>;
 }
 
 export function ProductTable({
   products,
+  categories,
+  initialCategoryFilter,
   onEdit,
   onDelete,
   onUpdateStock,
+  onToggleFeatured,
 }: ProductTableProps) {
+  const [categoriesList, setCategoriesList] = useState<Category[]>(categories || []);
+
+  useEffect(() => {
+    if (categories && categories.length > 0) {
+      setCategoriesList(categories);
+      return;
+    }
+    api.categories.list({ all: true }).then((res) => {
+      if (res.success && res.data) {
+        setCategoriesList(res.data);
+      }
+    });
+  }, [categories]);
+
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>(
+    initialCategoryFilter || 'all'
+  );
+
+  useEffect(() => {
+    if (initialCategoryFilter) {
+      setCategoryFilter(initialCategoryFilter);
+    }
+  }, [initialCategoryFilter]);
   const [stockFilter, setStockFilter] = useState<string>('all');
+  const [genderFilter, setGenderFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('newest');
 
   // Inline Stock Edit State
@@ -55,7 +85,11 @@ export function ProductTable({
       else if (stockFilter === 'out') matchStock = p.stock === 0;
       else if (stockFilter === 'in_stock') matchStock = p.stock > 5;
 
-      return matchSearch && matchCat && matchStock;
+      const matchGender =
+        genderFilter === 'all' ||
+        (p.gender && p.gender.toLowerCase() === genderFilter.toLowerCase());
+
+      return matchSearch && matchCat && matchStock && matchGender;
     })
     .sort((a, b) => {
       if (sortBy === 'price_asc') return a.price - b.price;
@@ -98,24 +132,37 @@ export function ProductTable({
         </div>
 
         {/* Category Filter */}
-        <div className="w-full md:w-48">
+        <div className="w-full md:w-44">
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="input select text-sm"
           >
             <option value="all">Semua Kategori</option>
-            <option value="dress">Dress & Gown</option>
-            <option value="blazer">Blazer</option>
-            <option value="bag">Tas Mewah</option>
-            <option value="shoes">Sepatu & Heels</option>
-            <option value="coat">Mantel / Coat</option>
-            <option value="accessories">Aksesoris</option>
+            {categoriesList.map((c) => (
+              <option key={c.id} value={c.slug}>
+                {c.label_en || c.name}{c.label_id ? ` (${c.label_id})` : ''}{!c.active ? ' (disembunyikan)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Gender Filter */}
+        <div className="w-full md:w-36">
+          <select
+            value={genderFilter}
+            onChange={(e) => setGenderFilter(e.target.value)}
+            className="input select text-sm"
+          >
+            <option value="all">Semua Gender</option>
+            <option value="women">Women</option>
+            <option value="men">Men</option>
+            <option value="unisex">Unisex</option>
           </select>
         </div>
 
         {/* Stock Filter */}
-        <div className="w-full md:w-44">
+        <div className="w-full md:w-40">
           <select
             value={stockFilter}
             onChange={(e) => setStockFilter(e.target.value)}
@@ -129,7 +176,7 @@ export function ProductTable({
         </div>
 
         {/* Sort */}
-        <div className="w-full md:w-44">
+        <div className="w-full md:w-40">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
@@ -152,6 +199,7 @@ export function ProductTable({
             <tr>
               <th>Produk & SKU</th>
               <th>Kategori</th>
+              <th>Gender</th>
               <th>Harga</th>
               <th>Stok Tersedia</th>
               <th>Rating</th>
@@ -162,7 +210,7 @@ export function ProductTable({
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-gray-500">
+                <td colSpan={8} className="text-center py-12 text-gray-500">
                   Tidak ada produk yang cocok dengan pencarian / filter.
                 </td>
               </tr>
@@ -189,11 +237,25 @@ export function ProductTable({
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="font-semibold text-white text-sm">{product.name}</p>
-                          {product.featured && (
-                            <span className="p-0.5 rounded bg-gold/20 text-gold" title="Featured Product">
-                              <Sparkles className="w-3 h-3" />
-                            </span>
-                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleFeatured?.(product);
+                            }}
+                            className={`p-1 rounded transition-colors ${
+                              product.featured
+                                ? 'bg-gold/20 text-gold hover:bg-gold/30'
+                                : 'text-gray-600 hover:text-gold hover:bg-[#222]'
+                            }`}
+                            title={
+                              product.featured
+                                ? 'Featured di Beranda (Klik untuk nonaktifkan)'
+                                : 'Bukan Featured (Klik untuk jadikan featured)'
+                            }
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                         <p className="font-mono text-xs text-gray-400 mt-0.5">{product.id}</p>
                       </div>
@@ -203,8 +265,34 @@ export function ProductTable({
                   {/* Category */}
                   <td>
                     <span className="capitalize px-2.5 py-1 rounded-md bg-[#181818] border border-[#2a2a2a] text-xs text-gray-300">
-                      {product.category}
+                      {categoriesList.find((c) => c.slug === product.category || c.id === product.categoryId)?.name || product.category}
                     </span>
+                  </td>
+
+                  {/* Gender & Collection */}
+                  <td>
+                    <div className="flex flex-col gap-1 items-start">
+                      {product.gender === 'women' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-rose-500/10 text-rose-300 border border-rose-500/20">
+                          Women
+                        </span>
+                      ) : product.gender === 'men' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                          Men
+                        </span>
+                      ) : product.gender === 'unisex' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                          Unisex
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-500">-</span>
+                      )}
+                      {product.collection && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                          Collection
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Price */}
@@ -229,6 +317,7 @@ export function ProductTable({
                           onChange={(e) => setTempStock(Math.max(0, parseInt(e.target.value) || 0))}
                           className="w-16 px-2 py-1 text-xs bg-[#181818] border border-gold rounded text-white outline-none"
                           min={0}
+                          step={1}
                           autoFocus
                         />
                         <button
