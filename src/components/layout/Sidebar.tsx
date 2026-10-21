@@ -6,6 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Package,
+  FolderTree,
+  Compass,
   ShoppingBag,
   MessageSquareText,
   Users,
@@ -72,6 +74,16 @@ export function Sidebar() {
       label: 'Katalog Produk',
       href: '/products',
       icon: Package,
+    },
+    {
+      label: 'Kategori',
+      href: '/categories',
+      icon: FolderTree,
+    },
+    {
+      label: 'Menu Navbar',
+      href: '/navigation',
+      icon: Compass,
     },
     {
       label: 'Pesanan',
